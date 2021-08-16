@@ -70,7 +70,7 @@ async def searchGifs(query):
 
 @aiocron.crontab('* * * * *')
 async def announce_tournments():
-    channel = bot.get_channel(799146932080869417)
+    channel = bot.get_channel(849735687724335124)
     tourneys = getTournments()
     for t in tourneys:
         diff = datetime.fromisoformat(t["time"]) - datetime.utcnow()
