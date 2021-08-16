@@ -1,7 +1,7 @@
 # bot.py
 import os
 import discord
-import json
+from discord.ext.commands.core import has_role
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
@@ -9,29 +9,26 @@ import giphy_client
 from discord.ext.commands import Bot
 import asyncio
 from giphy_client.rest import ApiException
-from cogs.Admin import Admin
 import time
+import aiocron
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = os.getenv('DISCORD_GUILD')
 GIF_TOKEN = os.getenv('GIFY_TOKEN') 
-BOT_OWNER_ID = os.getenv('OWNER')
 
 intents = discord.Intents.all()
 intents.members = True
 
-bot = commands.Bot(command_prefix=['punkBot ', 'punkbot '], intents=intents, help_command=None)
-
-bot.add_cog(Admin(bot, BOT_OWNER_ID))
+bot = commands.Bot(command_prefix=['punkBot ', 'punkbot ', 'pb ', 'PunkBot', 'PB'], intents=intents, help_command=None)
 
 api_instance = giphy_client.DefaultApi()
 
 messages = joined = 0
 
-owner_id = BOT_OWNER_ID
-
-async def updateStats():
+async def update_stats():
     await bot.wait_until_ready()
     global messages, joined
 
@@ -47,52 +44,11 @@ async def updateStats():
             print(e, flush=True)
 
 @bot.event
-async def onMessage(message):
-    banned_terms = []
-    if any(banned_word in message.content for banned_word in banned_terms):
-        await message.channel.send("No swearing" + message.author.name)
-        await message.delete()
-    if message.content.lower() == "punkBot help":
-        em = discord.Embed(title = 'Command list', color=discord.Color.green())
-        em.add_field(name="Gifs", value="Commands:\n \a - gif\n Usage:\n \a - punkBot gif <word>", inline = False)
-        em.add_field(
-            name="Admin/Owner only",
-            value="Commands:\n \a - ban\n \a - unban\n \a - addRole\n \a - removeRole\n Usage:\n \a - punkBot ban <@user>\n \a - punkBot unban <user id>\n \a - punkBot add_role/remove_role <@user> <role>"
-        )
-        await message.channel.send(content=None, embed=em)
-    await bot.process_commands(message)
-
-
-async def get_msg(channel, msgID: int):
-    msg = await channel.fetch_message(msgID)
-    return(msg)
-
-@bot.command()
-async def deleteMsg(ctx, arg):
-    print(arg, flush=True)
-    if ctx.message.author.guild_permissions.administrator or ctx.message.author.id == int(owner_id):
-        msg = await get_msg(ctx.message.channel, arg)
-        print(ctx.message.channel, flush=True)
-        await msg.delete()
-    else:
-        return 1
-
-@bot.event
-async def onMemberJoin(member):
+async def on_member_join(member):
     global joined
     joined += 1
-    channel = discord.utils.get(member.guild.channels, name='general')
-    await channel.send(f'Enjoy your stay {member.mention}!')
-
-@bot.command()
-async def getUserList(ctx):
-    mb_list = []
-    with open('users.txt','w') as f:
-        async for member in ctx.guild.fetch_members(limit=None):
-            print("{},{}".format(member,member.id), file=f,)
-            mb_list.append(member)
-    print("done")
-    return mb_list
+    channel = discord.utils.get(member.guild.channels, name='off-topic-general')
+    await channel.send(f'Welcome {member.mention}! Thanks for joining our discord.')
 
 @bot.command()
 async def gif(ctx, arg):
@@ -112,5 +68,31 @@ async def searchGifs(query):
     except ApiException as e:
         return "Exception when calling DefaultApi->gifs_search_get: %s\n" % e
 
-bot.loop.create_task(updateStats())
+@aiocron.crontab('* * * * *')
+async def announce_tournments():
+    channel = bot.get_channel(799146932080869417)
+    tourneys = getTournments()
+    for t in tourneys:
+        diff = datetime.fromisoformat(t["time"]) - datetime.utcnow()
+        if diff > timedelta(minutes=30, seconds=0) and diff <= timedelta(minutes=30, seconds=59, milliseconds=999.999):
+            await channel.send(f"{t['name']} is starting in {int(diff.total_seconds() / 60)} minutes! {t['link']}")
+
+def getTournments():
+    events = []
+    URL = "https://lichess.org/team/chesspunks"
+    page = requests.get(URL)
+    soup = BeautifulSoup(page.content, "html.parser")
+    results = soup.find_all("tr", class_="enterable")
+    index = 1
+    for result in results:
+        events += [{
+            "name": result.find("span", class_="name").text,
+            "info": result.find("span", class_="setup").text,
+            "time": datetime.fromisoformat(result.find("time", class_="timeago abs")['datetime'][:-1]).strftime('%Y-%m-%d %H:%M'),
+            "link": 'https://lichess.org' + result.find('td', class_="header").find('a')['href'],
+        }]
+        index += 1
+    return events
+
+bot.loop.create_task(update_stats())
 bot.run(TOKEN)
