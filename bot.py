@@ -22,7 +22,7 @@ GIF_TOKEN = os.getenv('GIFY_TOKEN')
 intents = discord.Intents.all()
 intents.members = True
 
-bot = commands.Bot(command_prefix=['punkBot ', 'punkbot ', 'pb ', 'PunkBot', 'PB'], intents=intents, help_command=None)
+bot = commands.Bot(command_prefix=['punkBot ', 'Punkbot', 'punkbot ', 'pb ', 'PunkBot', 'PB'], intents=intents, help_command=None)
 
 api_instance = giphy_client.DefaultApi()
 
@@ -74,6 +74,7 @@ async def announce_tournments():
     tourneys = getTournments()
     for t in tourneys:
         diff = datetime.fromisoformat(t["time"]) - datetime.utcnow()
+        print((t, diff))
         if diff > timedelta(minutes=30, seconds=0) and diff <= timedelta(minutes=30, seconds=59, milliseconds=999.999):
             await channel.send(f"{t['name']} is starting in {int(diff.total_seconds() / 60)} minutes! {t['link']}")
 
@@ -88,7 +89,7 @@ def getTournments():
         events += [{
             "name": result.find("span", class_="name").text,
             "info": result.find("span", class_="setup").text,
-            "time": datetime.fromisoformat(result.find("time", class_="timeago abs")['datetime'][:-1]).strftime('%Y-%m-%d %H:%M'),
+            "time": datetime.fromisoformat(result.find("time", class_="timeago")['datetime'][:-1]).strftime('%Y-%m-%d %H:%M'),
             "link": 'https://lichess.org' + result.find('td', class_="header").find('a')['href'],
         }]
         index += 1
