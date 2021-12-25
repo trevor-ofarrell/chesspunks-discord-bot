@@ -47,7 +47,7 @@ async def update_stats():
 async def on_member_join(member):
     global joined
     joined += 1
-    channel = discord.utils.get(member.guild.channels, name='off-topic-general')
+    channel = discord.utils.get(member.guild.channels, name='welcome')
     await channel.send(f'Welcome {member.mention}! Thanks for joining our discord.')
 
 @bot.command()
